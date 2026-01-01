@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from aqt import gui_hooks, mw
@@ -96,17 +97,19 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 </div>
 
 <div id="mcq-meta"
-     data-mode="{{{{Mode}}}}"
-     data-card-id="{{{{CardId}}}}">
+     data-mode="{{{{Mode}}}}">
 </div>
+<div id="mcq-runtime" data-nid="" data-ord="" data-cid=""></div>
 
 <script>
 (() => {{
   const choicePrefix = {choice_prefix};
   const meta = document.getElementById("mcq-meta");
   const mode = (meta.dataset.mode || "").trim();
-  const cardId = meta.dataset.cardId || "";
-  const storageKey = `mcq_addon:v1:${{cardId}}`;
+  const runtime = document.getElementById("mcq-runtime");
+  const noteId = runtime?.dataset.nid || "unknown";
+  const cardOrd = runtime?.dataset.ord || "unknown";
+  const storageKey = `mcq_addon:v1:${{noteId}}:${{cardOrd}}`;
 
   const rawChoices = [];
   document.querySelectorAll("#mcq-hidden > div").forEach((el) => {{
@@ -211,9 +214,9 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 
 <div id="mcq-meta"
      data-mode="{{{{Mode}}}}"
-     data-correct="{{{{Correct}}}}"
-     data-card-id="{{{{CardId}}}}">
+     data-correct="{{{{Correct}}}}">
 </div>
+<div id="mcq-runtime" data-nid="" data-ord="" data-cid=""></div>
 
 <script>
 (() => {{
@@ -227,8 +230,10 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
   const meta = document.getElementById("mcq-meta");
   const rawMode = (meta.dataset.mode || "").trim();
   const rawCorrect = (meta.dataset.correct || "").trim();
-  const cardId = meta.dataset.cardId || "";
-  const storageKey = `mcq_addon:v1:${{cardId}}`;
+  const runtime = document.getElementById("mcq-runtime");
+  const noteId = runtime?.dataset.nid || "unknown";
+  const cardOrd = runtime?.dataset.ord || "unknown";
+  const storageKey = `mcq_addon:v1:${{noteId}}:${{cardOrd}}`;
 
   const resultEl = document.getElementById("mcq-result");
   const container = document.getElementById("mcq-choices");
@@ -536,9 +541,22 @@ def _add_menu_action() -> None:
     mw.form.menuTools.addAction(action)
 
 
+def _inject_runtime_data(html: str, card, kind) -> str:
+    if not card:
+        return html
+    note = card.note()
+    note_id = note.id if note else ""
+    replacement = (
+        f'<div id="mcq-runtime" data-nid="{note_id}" '
+        f'data-ord="{card.ord}" data-cid="{card.id}"></div>'
+    )
+    return re.sub(r'<div id="mcq-runtime"[^>]*></div>', replacement, html, count=1)
+
+
 def _init_addon() -> None:
     _add_menu_action()
     gui_hooks.profile_did_open.append(lambda: ensure_note_type())
+    gui_hooks.card_will_show.append(_inject_runtime_data)
 
 
 gui_hooks.editor_did_init_buttons.append(_add_editor_button)
