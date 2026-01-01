@@ -1,0 +1,16 @@
+name: CI + Release (shared)
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  call-shared:
+    uses: yuwayanagitani/anki-addon-workflows/.github/workflows/anki-addon.yml@v1
+    with:
+      python_version: "3.11"
