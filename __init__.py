@@ -97,8 +97,7 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 
 <div id="mcq-meta"
      data-mode="{{{{Mode}}}}"
-     data-note-id="{{{{Note ID}}}}"
-     data-card-ord="{{{{Card Ord}}}}">
+     data-card-id="{{{{CardId}}}}">
 </div>
 
 <script>
@@ -106,9 +105,8 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
   const choicePrefix = {choice_prefix};
   const meta = document.getElementById("mcq-meta");
   const mode = (meta.dataset.mode || "").trim();
-  const noteId = meta.dataset.noteId || "";
-  const cardOrd = meta.dataset.cardOrd || "";
-  const storageKey = `mcq_addon:v1:${{noteId}}:${{cardOrd}}`;
+  const cardId = meta.dataset.cardId || "";
+  const storageKey = `mcq_addon:v1:${{cardId}}`;
 
   const rawChoices = [];
   document.querySelectorAll("#mcq-hidden > div").forEach((el) => {{
@@ -214,8 +212,7 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 <div id="mcq-meta"
      data-mode="{{{{Mode}}}}"
      data-correct="{{{{Correct}}}}"
-     data-note-id="{{{{Note ID}}}}"
-     data-card-ord="{{{{Card Ord}}}}">
+     data-card-id="{{{{CardId}}}}">
 </div>
 
 <script>
@@ -230,9 +227,8 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
   const meta = document.getElementById("mcq-meta");
   const rawMode = (meta.dataset.mode || "").trim();
   const rawCorrect = (meta.dataset.correct || "").trim();
-  const noteId = meta.dataset.noteId || "";
-  const cardOrd = meta.dataset.cardOrd || "";
-  const storageKey = `mcq_addon:v1:${{noteId}}:${{cardOrd}}`;
+  const cardId = meta.dataset.cardId || "";
+  const storageKey = `mcq_addon:v1:${{cardId}}`;
 
   const resultEl = document.getElementById("mcq-result");
   const container = document.getElementById("mcq-choices");
