@@ -19,6 +19,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "ui": {
         "editor_button_label": "MCQ Builder",
         "tools_menu_label": "MCQ Builder...",
+        "force_update_templates": False,
     },
     "display": {
         "correct_format": "index",
@@ -27,6 +28,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "wrong_mark": "×",
         "correct_mark": "✓",
         "explanation_position": "bottom",
+        "clear_selection_on_back": True,
     },
 }
 
@@ -82,6 +84,7 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
     wrong_mark = json.dumps(display["wrong_mark"])
     correct_mark = json.dumps(display["correct_mark"])
     explanation_position = json.dumps(display["explanation_position"])
+    clear_selection_on_back = json.dumps(display["clear_selection_on_back"])
 
     front_template = f"""
 <div id="mcq-question">{{{{Question}}}}</div>
@@ -234,6 +237,7 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
   const wrongMark = {wrong_mark};         // kept for compatibility
   const correctMark = {correct_mark};
   const explanationPosition = {explanation_position};
+  const clearSelectionOnBack = {clear_selection_on_back};
 
   const meta = document.getElementById("mcq-meta");
   const rawMode = (meta.dataset.mode || "").trim();
@@ -317,6 +321,13 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
   }};
 
   const selectedValues = readStored();
+  if (clearSelectionOnBack && selectedValues.length > 0) {{
+    try {{
+      localStorage.removeItem(storageKey);
+    }} catch (error) {{
+      // Ignore storage errors
+    }}
+  }}
   const selectedSet = new Set(selectedValues);
   const correctSet = new Set(correctValues);
   const isUnanswered = selectedValues.length === 0;
@@ -350,8 +361,8 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
   const header = document.createElement("div");
   header.className = "mcq-choice mcq-judge-header";
   header.innerHTML = `
-    <span class="mcq-judge-head">Your</span>
-    <span class="mcq-judge-head">Correct</span>
+    <span class="mcq-judge-head" aria-label="Your">👤</span>
+    <span class="mcq-judge-head" aria-label="Correct">🎯</span>
     <span class="mcq-prefix"></span>
     <span class="mcq-content"></span>
   `;
@@ -530,7 +541,7 @@ html, body, #anki {
 }
 
 .mcq-judge-head {
-  font-size: 0.85em;
+  font-size: 0.8em;
   opacity: 0.65;
   font-weight: 600;
   text-align: center;
@@ -563,6 +574,8 @@ html, body, #anki {
 
 def ensure_note_type() -> None:
     model = mw.col.models.byName("MCQ (Addon)")
+    front_template, back_template, css = _build_templates(CONFIG)
+    updated = False
 
     if not model:
         model = mw.col.models.new("MCQ (Addon)")
@@ -572,19 +585,37 @@ def ensure_note_type() -> None:
         template = mw.col.models.newTemplate("Card 1")
         mw.col.models.addTemplate(model, template)
         mw.col.models.add(model)
+        model["tmpls"][0]["qfmt"] = front_template
+        model["tmpls"][0]["afmt"] = back_template
+        model["css"] = css
+        updated = True
+    else:
+        force_update = CONFIG["ui"]["force_update_templates"]
+        field_names = {field["name"] for field in model.get("flds", [])}
+        for field_name in _field_names():
+            if field_name not in field_names:
+                mw.col.models.addField(model, mw.col.models.newField(field_name))
+                updated = True
 
-    # Always update templates/CSS even if the model already exists
-    front_template, back_template, css = _build_templates(CONFIG)
+        if force_update:
+            if not model.get("tmpls"):
+                template = mw.col.models.newTemplate("Card 1")
+                model["tmpls"] = [template]
+            model["tmpls"][0]["qfmt"] = front_template
+            model["tmpls"][0]["afmt"] = back_template
+            model["css"] = css
+            updated = True
+        else:
+            if not model.get("tmpls"):
+                template = mw.col.models.newTemplate("Card 1")
+                template["qfmt"] = front_template
+                template["afmt"] = back_template
+                model["tmpls"] = [template]
+                model["css"] = css
+                updated = True
 
-    if not model.get("tmpls"):
-        template = mw.col.models.newTemplate("Card 1")
-        model["tmpls"] = [template]
-
-    model["tmpls"][0]["qfmt"] = front_template
-    model["tmpls"][0]["afmt"] = back_template
-    model["css"] = css
-
-    mw.col.models.save(model)
+    if updated:
+        mw.col.models.save(model)
 
 
 def _get_active_editor() -> Optional[Any]:
