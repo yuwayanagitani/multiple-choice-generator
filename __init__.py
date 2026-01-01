@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from aqt import gui_hooks, mw
 from aqt.browser import Browser
-from aqt.qt import QAction, QApplication
+from aqt.qt import QAction, QApplication, QWidget
 from aqt.utils import showInfo
 
 from .mcq_builder import McqBuilderDialog
@@ -613,9 +613,24 @@ def open_builder(editor=None) -> None:
         showInfo("Open the Add/Edit window or select a note in the Browser.")
         return
 
-    dialog = McqBuilderDialog(note, editor, CONFIG, mw)
-    dialog.exec()
+    # ★ 親は「今操作しているウィンドウ」
+    parent = None
+    if editor is not None:
+        # Add/Edit の親ウィンドウ（=エディタのウィンドウ）を親にする
+        try:
+            parent = editor.parentWindow()
+        except Exception:
+            parent = None
 
+    if parent is None:
+        # Browser などから開いた場合はアクティブウィンドウを親に
+        parent = QApplication.activeWindow()
+
+    if parent is None:
+        parent = mw  # 最後の保険
+
+    dialog = McqBuilderDialog(note, editor, CONFIG, parent)
+    dialog.exec()
 
 def _add_editor_button(buttons, editor) -> None:
     global _current_editor
