@@ -97,7 +97,7 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 
 <div id="mcq-meta"
      data-mode="{{{{Mode}}}}"
-     data-card-id="{{{{cid}}}}">
+     data-card-id="{{{{CardId}}}}">
 </div>
 
 <script>
@@ -212,7 +212,7 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 <div id="mcq-meta"
      data-mode="{{{{Mode}}}}"
      data-correct="{{{{Correct}}}}"
-     data-card-id="{{{{cid}}}}">
+     data-card-id="{{{{CardId}}}}">
 </div>
 
 <script>
