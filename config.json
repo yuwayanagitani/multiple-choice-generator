@@ -1,0 +1,14 @@
+{
+  "ui": {
+    "editor_button_label": "MCQ Builder",
+    "tools_menu_label": "MCQ Builder..."
+  },
+  "display": {
+    "correct_format": "index",
+    "choice_prefix": "letter",
+    "unanswered_text": "Unanswered.",
+    "wrong_mark": "×",
+    "correct_mark": "✓",
+    "explanation_position": "bottom"
+  }
+}
