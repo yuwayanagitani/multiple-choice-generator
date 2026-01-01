@@ -155,9 +155,19 @@ class McqBuilderDialog(QDialog):
         correct_value = ",".join(str(index) for index in selected)
         self.note["Mode"] = self.mode
         self.note["Correct"] = correct_value
-        self.note.flush()
+
+        # Existing notes can be flushed to the collection.
+        # New notes (nid=0) cannot be flushed yet; they will be saved when the user adds the note.
+        note_id = getattr(self.note, "id", 0) or getattr(self.note, "nid", 0)  # compatibility
+        if note_id:
+            try:
+                self.note.flush()
+            except Exception:
+                # Fall back: let the editor/collection handle persistence.
+                pass
 
         if self.editor:
+            # Refresh editor fields immediately (works for both new and existing notes).
             self.editor.loadNote()
 
         self.accept()

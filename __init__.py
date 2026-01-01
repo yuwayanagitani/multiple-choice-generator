@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from aqt import gui_hooks, mw
@@ -97,16 +98,20 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 
 <div id="mcq-meta"
      data-mode="{{{{Mode}}}}"
-     data-card-id="{{{{CardId}}}}">
+     data-cid="" data-nid="" data-ord="">
 </div>
+<div id="mcq-runtime" data-cid="" data-nid="" data-ord=""></div>
 
 <script>
 (() => {{
   const choicePrefix = {choice_prefix};
   const meta = document.getElementById("mcq-meta");
   const mode = (meta.dataset.mode || "").trim();
-  const cardId = meta.dataset.cardId || "";
-  const storageKey = `mcq_addon:v1:${{cardId}}`;
+  const runtime = document.getElementById("mcq-runtime");
+  const cid = runtime ? (runtime.dataset.cid || "") : "";
+  const nid = runtime ? (runtime.dataset.nid || "") : "";
+  const ord = runtime ? (runtime.dataset.ord || "") : "";
+  const storageKey = `mcq_addon:v1:${{nid}}:${{ord}}`;
 
   const rawChoices = [];
   document.querySelectorAll("#mcq-hidden > div").forEach((el) => {{
@@ -153,7 +158,7 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 
   rawChoices.forEach((choice) => {{
     const wrapper = document.createElement("label");
-    wrapper.className = "mcq-choice";
+    wrapper.className = "mcq-choice mcq-front-choice";
 
     const input = document.createElement("input");
     input.type = inputType;
@@ -171,9 +176,14 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
     content.className = "mcq-content";
     content.innerHTML = choice.html;
 
-    wrapper.appendChild(input);
+    const inputBox = document.createElement("span");
+    inputBox.className = "mcq-inputbox";
+    inputBox.appendChild(input);
+
+    wrapper.appendChild(inputBox);
     wrapper.appendChild(prefix);
     wrapper.appendChild(content);
+
     container.appendChild(wrapper);
   }});
 
@@ -212,23 +222,27 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 <div id="mcq-meta"
      data-mode="{{{{Mode}}}}"
      data-correct="{{{{Correct}}}}"
-     data-card-id="{{{{CardId}}}}">
+     data-cid="" data-nid="" data-ord="">
 </div>
+<div id="mcq-runtime" data-cid="" data-nid="" data-ord=""></div>
 
 <script>
 (() => {{
   const choicePrefix = {choice_prefix};
-  const correctFormat = {correct_format};
+  const correctFormat = {correct_format}; // kept for compatibility (unused in summary now)
   const unansweredText = {unanswered_text};
-  const wrongMark = {wrong_mark};
+  const wrongMark = {wrong_mark};         // kept for compatibility
   const correctMark = {correct_mark};
   const explanationPosition = {explanation_position};
 
   const meta = document.getElementById("mcq-meta");
   const rawMode = (meta.dataset.mode || "").trim();
   const rawCorrect = (meta.dataset.correct || "").trim();
-  const cardId = meta.dataset.cardId || "";
-  const storageKey = `mcq_addon:v1:${{cardId}}`;
+  const runtime = document.getElementById("mcq-runtime");
+  const cid = runtime ? (runtime.dataset.cid || "") : "";
+  const nid = runtime ? (runtime.dataset.nid || "") : "";
+  const ord = runtime ? (runtime.dataset.ord || "") : "";
+  const storageKey = `mcq_addon:v1:${{nid}}:${{ord}}`;
 
   const resultEl = document.getElementById("mcq-result");
   const container = document.getElementById("mcq-choices");
@@ -307,9 +321,8 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
   const correctSet = new Set(correctValues);
   const isUnanswered = selectedValues.length === 0;
 
-  if (isUnanswered) {{
-    resultEl.textContent = unansweredText;
-  }}
+  // Show only minimal result message (no "Correct answers: ..." summary)
+  resultEl.textContent = isUnanswered ? unansweredText : "";
 
   const rawChoices = [];
   document.querySelectorAll("#mcq-hidden > div").forEach((el) => {{
@@ -333,9 +346,31 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
     return `${{letter}}.`;
   }};
 
+  // Minimal header row: only "Your" and "Correct" (no "Choices")
+  const header = document.createElement("div");
+  header.className = "mcq-choice mcq-judge-header";
+  header.innerHTML = `
+    <span class="mcq-judge-head">Your</span>
+    <span class="mcq-judge-head">Correct</span>
+    <span class="mcq-prefix"></span>
+    <span class="mcq-content"></span>
+  `;
+  container.appendChild(header);
+
   rawChoices.forEach((choice) => {{
     const wrapper = document.createElement("div");
     wrapper.className = "mcq-choice";
+
+    const isSelected = selectedSet.has(choice.index);
+    const isCorrect = correctSet.has(choice.index);
+
+    const yourCol = document.createElement("span");
+    yourCol.className = "mcq-judge";
+    yourCol.textContent = (!isUnanswered && isSelected) ? correctMark : "";
+
+    const correctCol = document.createElement("span");
+    correctCol.className = "mcq-judge";
+    correctCol.textContent = (!isUnanswered && isCorrect) ? correctMark : "";
 
     const prefix = document.createElement("span");
     prefix.className = "mcq-prefix";
@@ -346,122 +381,180 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
     content.innerHTML = choice.html;
 
     if (!isUnanswered) {{
-      if (correctSet.has(choice.index)) {{
-        wrapper.classList.add("mcq-correct");
-        if (selectedSet.has(choice.index)) {{
-          const mark = document.createElement("span");
-          mark.className = "mcq-mark";
-          mark.textContent = correctMark;
-          wrapper.appendChild(mark);
-        }}
-      }} else if (selectedSet.has(choice.index)) {{
-        wrapper.classList.add("mcq-wrong");
-        const mark = document.createElement("span");
-        mark.className = "mcq-mark";
-        mark.textContent = wrongMark;
-        wrapper.appendChild(mark);
+      if (isSelected && isCorrect) {{
+        wrapper.classList.add("mcq-row-correct");
+      }} else if (isSelected || isCorrect) {{
+        wrapper.classList.add("mcq-row-wrong");
       }}
     }}
 
+    wrapper.appendChild(yourCol);
+    wrapper.appendChild(correctCol);
     wrapper.appendChild(prefix);
     wrapper.appendChild(content);
     container.appendChild(wrapper);
   }});
 
-  const formatCorrectAnswers = () => {{
-    const sorted = [...correctValues].sort((a, b) => a - b);
-    if (correctFormat === "letter") {{
-      return sorted.map((index) => String.fromCharCode("A".charCodeAt(0) + index - 1)).join(",");
-    }}
-    return sorted.join(",");
-  }};
-
-  const summary = document.createElement("div");
-  summary.className = "mcq-summary";
-  summary.textContent = `Correct answers: ${{formatCorrectAnswers()}}`;
-
   const explanation = document.getElementById("mcq-explanation");
   const explanationHtml = explanation ? explanation.innerHTML.trim() : "";
 
-  if (explanationPosition === "top" && explanationHtml) {{
+  if (explanationHtml) {{
     const explanationBlock = document.createElement("div");
     explanationBlock.className = "mcq-explanation";
     explanationBlock.innerHTML = explanationHtml;
-    resultEl.appendChild(explanationBlock);
-  }}
 
-  resultEl.appendChild(summary);
-
-  if (explanationPosition === "bottom" && explanationHtml) {{
-    const explanationBlock = document.createElement("div");
-    explanationBlock.className = "mcq-explanation";
-    explanationBlock.innerHTML = explanationHtml;
-    resultEl.appendChild(explanationBlock);
+    if (explanationPosition === "top") {{
+      resultEl.appendChild(explanationBlock);
+    }} else {{
+      resultEl.appendChild(explanationBlock);
+    }}
   }}
 }})();
 </script>
 """
 
     css = """
+/* ===== Global font unification (avoid Anki theme mismatches) ===== */
+html, body, #anki {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Meiryo", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+/* Container */
 .mcq-choices {
   margin-top: 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
+  align-items: center;
 }
 
+/* Question: add vertical margins */
+#mcq-question {
+  font-size: 20px;
+  max-width: 700px;
+  width: 100%;
+  margin: 4.0rem auto;  /* ★ 上下マージン増やす */
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* Result block alignment */
+#mcq-result,
+.mcq-explanation,
+.mcq-error {
+  max-width: 700px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+/* When result is empty, keep spacing subtle */
+#mcq-result {
+  min-height: 0.5rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Front choices keep original layout */
+.mcq-front-choice {
+  display: grid;
+  grid-template-columns: 1.6em auto 1fr; /* ★ 1列目を固定幅に */
+  align-items: center;          /* ★ start → center */
+  column-gap: 0.6rem;
+  width: 100%;
+  max-width: 700px;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+/* input を“箱”で中央揃え */
+.mcq-inputbox{
+  width:1.6em;
+  height:1.6em;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.mcq-front-choice input {
+  margin:0;
+  padding:0;
+  line-height:1;
+}
+
+/* Back choices: [Your][Correct][prefix][content] */
 .mcq-choice {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  display: grid;
+  grid-template-columns: 3.4em 3.8em auto 1fr; /* ★ "Correct"が折り返さない幅 */
+  align-items: start;
+  column-gap: 0.6rem;
+
+  width: 100%;
+  max-width: 700px;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  box-sizing: border-box;
+  text-align: left;
 }
 
-.mcq-choice input {
-  margin-top: 0.2rem;
-}
-
+/* Prefix + content */
 .mcq-prefix {
-  font-weight: bold;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.mcq-correct {
+.mcq-content {
+  word-break: break-word;
+}
+
+/* Judge columns */
+.mcq-judge {
+  display: inline-block;
+  text-align: center;
+  font-weight: 700;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Minimal header row */
+.mcq-judge-header {
+  padding-top: 0.2rem;
+  padding-bottom: 0.2rem;
+  background: transparent;
+}
+
+.mcq-judge-head {
+  font-size: 0.85em;
+  opacity: 0.65;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap; /* ★ 折り返し防止 */
+}
+
+/* Error block */
+.mcq-error {
+  padding: 0.75rem;
+  border-radius: 6px;
+}
+
+/* Row coloring rule */
+.mcq-row-correct {
   background: #d6f5d6;
 }
 
-.mcq-wrong {
+.mcq-row-wrong {
   background: #f8d7da;
 }
 
-.mcq-mark {
-  margin-left: auto;
-  font-weight: bold;
-}
-
-.mcq-summary {
-  margin-top: 0.75rem;
-  font-weight: bold;
-}
-
+/* Explanation block */
 .mcq-explanation {
-  margin-top: 0.75rem;
-}
-
-.mcq-error {
-  border: 1px solid #d9534f;
-  background: #f8d7da;
-  padding: 0.75rem;
-  border-radius: 4px;
-}
-
-.mcq-error-title {
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-}
-
-.mcq-raw {
-  font-family: monospace;
+  margin: 0.85rem auto 0;
 }
 """
 
@@ -470,20 +563,28 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 
 def ensure_note_type() -> None:
     model = mw.col.models.byName("MCQ (Addon)")
-    if model:
-        return
 
-    model = mw.col.models.new("MCQ (Addon)")
-    for field_name in _field_names():
-        mw.col.models.addField(model, mw.col.models.newField(field_name))
+    if not model:
+        model = mw.col.models.new("MCQ (Addon)")
+        for field_name in _field_names():
+            mw.col.models.addField(model, mw.col.models.newField(field_name))
 
+        template = mw.col.models.newTemplate("Card 1")
+        mw.col.models.addTemplate(model, template)
+        mw.col.models.add(model)
+
+    # Always update templates/CSS even if the model already exists
     front_template, back_template, css = _build_templates(CONFIG)
-    template = mw.col.models.newTemplate("Card 1")
-    template["qfmt"] = front_template
-    template["afmt"] = back_template
-    mw.col.models.addTemplate(model, template)
+
+    if not model.get("tmpls"):
+        template = mw.col.models.newTemplate("Card 1")
+        model["tmpls"] = [template]
+
+    model["tmpls"][0]["qfmt"] = front_template
+    model["tmpls"][0]["afmt"] = back_template
     model["css"] = css
-    mw.col.models.add(model)
+
+    mw.col.models.save(model)
 
 
 def _get_active_editor() -> Optional[Any]:
@@ -505,7 +606,7 @@ def _get_target_note():
     return None, None
 
 
-def open_builder() -> None:
+def open_builder(editor=None) -> None:
     ensure_note_type()
     note, editor = _get_target_note()
     if not note:
@@ -516,18 +617,19 @@ def open_builder() -> None:
     dialog.exec()
 
 
-def _add_editor_button(editor) -> None:
+def _add_editor_button(buttons, editor) -> None:
     global _current_editor
     _current_editor = editor
 
-    button = editor.addButton(
+    btn_html = editor.addButton(
         icon=None,
         cmd="mcq_builder",
         func=open_builder,
         tip=CONFIG["ui"]["editor_button_label"],
         label=CONFIG["ui"]["editor_button_label"],
     )
-    button.setEnabled(True)
+    if isinstance(btn_html, str):
+        buttons.append(btn_html)
 
 
 def _add_menu_action() -> None:
@@ -541,6 +643,30 @@ def _init_addon() -> None:
     gui_hooks.profile_did_open.append(lambda: ensure_note_type())
 
 
-gui_hooks.editor_did_init_buttons.append(_add_editor_button)
+def _inject_runtime_ids(html: str, card, kind: str) -> str:
+    try:
+        nid = str(card.nid)
+        ord_ = str(card.ord)
+        cid = str(card.id)
+    except Exception:
+        return html
 
+    if 'id="mcq-runtime"' not in html:
+        return html
+
+    def repl(match):
+        tag = match.group(0)
+        tag = re.sub(r'data-cid="[^"]*"', f'data-cid="{cid}"', tag)
+        tag = re.sub(r'data-nid="[^"]*"', f'data-nid="{nid}"', tag)
+        tag = re.sub(r'data-ord="[^"]*"', f'data-ord="{ord_}"', tag)
+        return tag
+
+    try:
+        return re.sub(r'<div\s+id="mcq-runtime"[^>]*>', repl, html, count=1)
+    except Exception:
+        return html
+
+
+gui_hooks.card_will_show.append(_inject_runtime_ids)
+gui_hooks.editor_did_init_buttons.append(_add_editor_button)
 _init_addon()
