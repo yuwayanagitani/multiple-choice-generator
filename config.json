@@ -1,7 +1,8 @@
 {
   "ui": {
     "editor_button_label": "MCQ Builder",
-    "tools_menu_label": "MCQ Builder..."
+    "tools_menu_label": "MCQ Builder...",
+    "force_update_templates": true
   },
   "display": {
     "correct_format": "index",
@@ -9,6 +10,7 @@
     "unanswered_text": "Unanswered.",
     "wrong_mark": "×",
     "correct_mark": "✓",
-    "explanation_position": "bottom"
+    "explanation_position": "bottom",
+    "clear_selection_on_back": true
   }
 }

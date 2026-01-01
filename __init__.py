@@ -251,6 +251,10 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
   const resultEl = document.getElementById("mcq-result");
   const container = document.getElementById("mcq-choices");
 
+  if (rawMode === "single") {{
+    container.classList.add("mcq-single-mode");
+  }}
+
   const showError = (message) => {{
     resultEl.innerHTML = `
       <div class="mcq-error">
@@ -446,7 +450,7 @@ html, body, #anki {
   font-size: 20px;
   max-width: 700px;
   width: 100%;
-  margin: 4.0rem auto;  /* ★ 上下マージン増やす */
+  margin: 3rem auto 2rem auto;  /* ★ 上下マージン増やす */
   text-align: center;
   box-sizing: border-box;
 }
@@ -502,7 +506,7 @@ html, body, #anki {
 /* Back choices: [Your][Correct][prefix][content] */
 .mcq-choice {
   display: grid;
-  grid-template-columns: 3.4em 3.8em auto 1fr; /* ★ "Correct"が折り返さない幅 */
+  grid-template-columns: 1.6em 1.6em auto 1fr;
   align-items: start;
   column-gap: 0.6rem;
 
@@ -526,11 +530,11 @@ html, body, #anki {
 
 /* Judge columns */
 .mcq-judge {
-  display: inline-block;
-  text-align: center;
-  font-weight: 700;
-  white-space: nowrap;
-  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05em;   /* 絵文字を少しだけ見やすく */
+  line-height: 1;
 }
 
 /* Minimal header row */
@@ -541,6 +545,9 @@ html, body, #anki {
 }
 
 .mcq-judge-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.8em;
   opacity: 0.65;
   font-weight: 600;
@@ -567,6 +574,22 @@ html, body, #anki {
 .mcq-explanation {
   margin: 0.85rem auto 0;
 }
+
+/* ===== Single mode: hide "Your" (👤) column ===== */
+.mcq-single-mode .mcq-choice {
+  grid-template-columns: 1.6em auto 1fr; /* [Correct][prefix][content] */
+}
+
+/* hide 👤 column (1st column) */
+.mcq-single-mode .mcq-choice > .mcq-judge:first-child {
+  display: none;
+}
+
+/* header row: hide 👤 icon too */
+.mcq-single-mode .mcq-judge-header > .mcq-judge-head:first-child {
+  display: none;
+}
+
 """
 
     return front_template, back_template, css
