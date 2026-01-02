@@ -1,7 +1,6 @@
 {
   "ui": {
     "editor_button_label": "MCQ Builder",
-    "tools_menu_label": "MCQ Builder...",
     "force_update_templates": true
   },
   "display": {

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -11,9 +10,6 @@ from aqt.qt import QAction, QApplication, QWidget
 from aqt.utils import showInfo
 
 from .mcq_builder import McqBuilderDialog
-
-ADDON_DIR = os.path.dirname(__file__)
-CONFIG_PATH = os.path.join(ADDON_DIR, "config.json")
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "ui": {
@@ -46,19 +42,12 @@ def _deep_merge(defaults: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str
 
 
 def load_config() -> Dict[str, Any]:
-    if not os.path.exists(CONFIG_PATH):
-        return DEFAULT_CONFIG
-    try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as handle:
-            loaded = json.load(handle)
-        if isinstance(loaded, dict):
-            return _deep_merge(DEFAULT_CONFIG, loaded)
-    except (OSError, json.JSONDecodeError):
-        return DEFAULT_CONFIG
-    return DEFAULT_CONFIG
-
-
-CONFIG = load_config()
+    """
+    Load config from Anki add-on config (Tools -> Add-ons -> Config).
+    Anki will provide defaults from the add-on's config.json automatically.
+    """
+    cfg = mw.addonManager.getConfig(__name__) or {}
+    return _deep_merge(DEFAULT_CONFIG, cfg)
 
 
 def _field_names() -> List[str]:
@@ -596,8 +585,9 @@ html, body, #anki {
 
 
 def ensure_note_type() -> None:
+    cfg = load_config()
     model = mw.col.models.byName("MCQ (Addon)")
-    front_template, back_template, css = _build_templates(CONFIG)
+    front_template, back_template, css = _build_templates(cfg)
     updated = False
 
     if not model:
@@ -613,7 +603,7 @@ def ensure_note_type() -> None:
         model["css"] = css
         updated = True
     else:
-        force_update = CONFIG["ui"]["force_update_templates"]
+        force_update = cfg["ui"]["force_update_templates"]
         field_names = {field["name"] for field in model.get("flds", [])}
         for field_name in _field_names():
             if field_name not in field_names:
@@ -662,6 +652,7 @@ def _get_target_note():
 
 def open_builder(editor=None) -> None:
     ensure_note_type()
+    cfg = load_config()
     note, editor = _get_target_note()
     if not note:
         showInfo("Open the Add/Edit window or select a note in the Browser.")
@@ -683,32 +674,34 @@ def open_builder(editor=None) -> None:
     if parent is None:
         parent = mw  # 最後の保険
 
-    dialog = McqBuilderDialog(note, editor, CONFIG, parent)
+    dialog = McqBuilderDialog(note, editor, cfg, parent)
     dialog.exec()
 
 def _add_editor_button(buttons, editor) -> None:
     global _current_editor
     _current_editor = editor
+    cfg = load_config()
 
     btn_html = editor.addButton(
         icon=None,
         cmd="mcq_builder",
         func=open_builder,
-        tip=CONFIG["ui"]["editor_button_label"],
-        label=CONFIG["ui"]["editor_button_label"],
+        tip=cfg["ui"]["editor_button_label"],
+        label=cfg["ui"]["editor_button_label"],
     )
     if isinstance(btn_html, str):
         buttons.append(btn_html)
 
 
 def _add_menu_action() -> None:
-    action = QAction(CONFIG["ui"]["tools_menu_label"], mw)
+    cfg = load_config()
+    action = QAction(cfg["ui"]["tools_menu_label"], mw)
     action.triggered.connect(open_builder)
     mw.form.menuTools.addAction(action)
 
 
 def _init_addon() -> None:
-    _add_menu_action()
+    # _add_menu_action() 一旦要らない
     gui_hooks.profile_did_open.append(lambda: ensure_note_type())
 
 
