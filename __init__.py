@@ -407,7 +407,7 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
     if (explanationPosition === "top") {{
       resultEl.appendChild(explanationBlock);
     }} else {{
-      resultEl.appendChild(explanationBlock);
+      container.after(explanationBlock); // ★ ここが重要
     }}
   }}
 }})();
