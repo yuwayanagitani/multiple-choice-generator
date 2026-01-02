@@ -558,7 +558,7 @@ html, body, #anki {
 
 /* Explanation block */
 .mcq-explanation {
-  margin: 0.85rem auto 0;
+  margin: 2.5rem auto;
 }
 
 /* ===== Single mode: hide "Your" (👤) column ===== 一旦復活させてます。
