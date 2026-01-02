@@ -447,7 +447,7 @@ html, body, #anki {
 
 /* Question: add vertical margins */
 #mcq-question {
-  font-size: 20px;
+  font-size: 18px;
   max-width: 700px;
   width: 100%;
   margin: 3rem auto 2rem auto;  /* ★ 上下マージン増やす */
