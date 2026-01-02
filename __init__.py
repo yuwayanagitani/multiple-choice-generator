@@ -98,7 +98,8 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 (() => {{
   const choicePrefix = {choice_prefix};
   const meta = document.getElementById("mcq-meta");
-  const mode = (meta.dataset.mode || "").trim();
+  const raw = (meta.dataset.mode || "").trim().toLowerCase();
+  const mode = (raw === "single") ? "single" : "multi";
   const runtime = document.getElementById("mcq-runtime");
   const cid = runtime ? (runtime.dataset.cid || "") : "";
   const nid = runtime ? (runtime.dataset.nid || "") : "";
@@ -229,7 +230,8 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
   const clearSelectionOnBack = {clear_selection_on_back};
 
   const meta = document.getElementById("mcq-meta");
-  const rawMode = (meta.dataset.mode || "").trim();
+  const raw = (meta.dataset.mode || "").trim().toLowerCase();
+  const rawMode = (raw === "single") ? "single" : "multi";
   const rawCorrect = (meta.dataset.correct || "").trim();
   const runtime = document.getElementById("mcq-runtime");
   const cid = runtime ? (runtime.dataset.cid || "") : "";
@@ -280,11 +282,6 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
     }}
     return values;
   }};
-
-  if (rawMode !== "single" && rawMode !== "multi") {{
-    showError("Invalid Mode field.");
-    return;
-  }}
 
   const correctValues = parseCorrect();
   if (!correctValues) {{
@@ -564,20 +561,19 @@ html, body, #anki {
   margin: 0.85rem auto 0;
 }
 
-/* ===== Single mode: hide "Your" (👤) column ===== */
+/* ===== Single mode: hide "Your" (👤) column ===== 一旦復活させてます。
 .mcq-single-mode .mcq-choice {
-  grid-template-columns: 1.6em auto 1fr; /* [Correct][prefix][content] */
+  grid-template-columns: 1.6em auto 1fr;
 }
 
-/* hide 👤 column (1st column) */
 .mcq-single-mode .mcq-choice > .mcq-judge:first-child {
   display: none;
 }
 
-/* header row: hide 👤 icon too */
 .mcq-single-mode .mcq-judge-header > .mcq-judge-head:first-child {
   display: none;
 }
+*/
 
 """
 
