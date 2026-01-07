@@ -415,11 +415,47 @@ def _build_templates(config: Dict[str, Any]) -> Tuple[str, str, str]:
 """
 
     css = """
+/* ============================
+   Theme variables (Light/Dark)
+   ============================ */
+
+:root {
+  /* Base text */
+  --mcq-fg: #222222;
+  --mcq-muted: rgba(0, 0, 0, 0.65);
+
+  /* Surfaces / borders */
+  --mcq-border: rgba(0, 0, 0, 0.18);
+  --mcq-soft-border: rgba(0, 0, 0, 0.08);
+
+  /* Result highlight rows */
+  --mcq-correct-bg: rgba(0, 200, 0, 0.14);
+  --mcq-wrong-bg: rgba(255, 0, 0, 0.12);
+
+  /* Error block */
+  --mcq-error-bg: rgba(255, 0, 0, 0.10);
+}
+
+/* Anki dark mode (most builds/themes add this class) */
+body.nightMode {
+  --mcq-fg: rgba(255, 255, 255, 0.92);
+  --mcq-muted: rgba(255, 255, 255, 0.65);
+
+  --mcq-border: rgba(255, 255, 255, 0.18);
+  --mcq-soft-border: rgba(255, 255, 255, 0.08);
+
+  --mcq-correct-bg: rgba(0, 220, 120, 0.18);
+  --mcq-wrong-bg: rgba(255, 90, 90, 0.18);
+
+  --mcq-error-bg: rgba(255, 90, 90, 0.12);
+}
+
 /* ===== Global font unification (avoid Anki theme mismatches) ===== */
 html, body, #anki {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Meiryo", Arial, sans-serif;
   font-size: 16px;
   line-height: 1.45;
+  color: var(--mcq-fg);
 }
 
 /* Container */
@@ -451,6 +487,7 @@ html, body, #anki {
   margin-right: auto;
   text-align: left;
   box-sizing: border-box;
+  color: var(--mcq-fg);
 }
 
 /* When result is empty, keep spacing subtle */
@@ -472,21 +509,24 @@ html, body, #anki {
   border-radius: 6px;
   box-sizing: border-box;
   text-align: left;
+
+  /* theme-friendly subtle outline */
+  border: 1px solid var(--mcq-soft-border);
 }
 
 /* input を“箱”で中央揃え */
 .mcq-inputbox{
-  width:1.6em;
-  height:1.6em;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  width: 1.6em;
+  height: 1.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mcq-front-choice input {
-  margin:0;
-  padding:0;
-  line-height:1;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
 }
 
 /* Back choices: [Your][Correct][prefix][content] */
@@ -502,6 +542,9 @@ html, body, #anki {
   border-radius: 6px;
   box-sizing: border-box;
   text-align: left;
+
+  /* theme-friendly subtle outline */
+  border: 1px solid var(--mcq-soft-border);
 }
 
 /* Prefix + content */
@@ -528,6 +571,7 @@ html, body, #anki {
   padding-top: 0.2rem;
   padding-bottom: 0.2rem;
   background: transparent;
+  border-color: transparent; /* header row shouldn't look like a choice card */
 }
 
 .mcq-judge-head {
@@ -535,7 +579,8 @@ html, body, #anki {
   align-items: center;
   justify-content: center;
   font-size: 0.8em;
-  opacity: 0.65;
+  opacity: 1;
+  color: var(--mcq-muted);
   font-weight: 600;
   text-align: center;
   white-space: nowrap; /* ★ 折り返し防止 */
@@ -545,15 +590,17 @@ html, body, #anki {
 .mcq-error {
   padding: 0.75rem;
   border-radius: 6px;
+  background: var(--mcq-error-bg);
+  border: 1px solid var(--mcq-border);
 }
 
-/* Row coloring rule */
+/* Row coloring rule (theme-aware) */
 .mcq-row-correct {
-  background: #d6f5d6;
+  background: var(--mcq-correct-bg);
 }
 
 .mcq-row-wrong {
-  background: #f8d7da;
+  background: var(--mcq-wrong-bg);
 }
 
 /* Explanation block */
@@ -574,7 +621,6 @@ html, body, #anki {
   display: none;
 }
 */
-
 """
 
     return front_template, back_template, css
