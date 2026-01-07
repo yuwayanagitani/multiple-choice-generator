@@ -581,47 +581,103 @@ html, body, #anki {
 
 
 def ensure_note_type() -> None:
+    """
+    Ensure the 'MCQ (Addon)' note type exists and is valid.
+
+    Fixes:
+    - When creating a new model, set qfmt/afmt BEFORE mw.col.models.add(model),
+      otherwise Anki may throw:
+        CardTypeError: Expected to find a field replacement on the front...
+    - For existing users, auto-repair broken templates (e.g., empty qfmt).
+    """
     cfg = load_config()
-    model = mw.col.models.byName("MCQ (Addon)")
     front_template, back_template, css = _build_templates(cfg)
+
+    def front_has_field_replacement(qfmt: str) -> bool:
+        """
+        Anki requires at least one field replacement on the *front* template.
+        We'll treat any {{...}} as a field replacement (good enough here).
+        """
+        qfmt = (qfmt or "").strip()
+        if not qfmt:
+            return False
+        return re.search(r"{{[^}]+}}", qfmt) is not None
+
+    model = mw.col.models.byName("MCQ (Addon)")
     updated = False
 
+    # -----------------------
+    # Create new model (safe)
+    # -----------------------
     if not model:
         model = mw.col.models.new("MCQ (Addon)")
+
+        # Fields
         for field_name in _field_names():
             mw.col.models.addField(model, mw.col.models.newField(field_name))
 
-        template = mw.col.models.newTemplate("Card 1")
-        mw.col.models.addTemplate(model, template)
-        mw.col.models.add(model)
-        model["tmpls"][0]["qfmt"] = front_template
-        model["tmpls"][0]["afmt"] = back_template
+        # Template (IMPORTANT: fill qfmt/afmt before adding model)
+        tmpl = mw.col.models.newTemplate("Card 1")
+        tmpl["qfmt"] = front_template
+        tmpl["afmt"] = back_template
+        mw.col.models.addTemplate(model, tmpl)
+
+        # CSS
         model["css"] = css
+
+        # Add model to collection AFTER templates are valid
+        mw.col.models.add(model)
         updated = True
+
+    # -----------------------
+    # Update / repair existing
+    # -----------------------
     else:
-        force_update = cfg["ui"]["force_update_templates"]
-        field_names = {field["name"] for field in model.get("flds", [])}
+        force_update = bool(cfg.get("ui", {}).get("force_update_templates", False))
+
+        # Ensure all fields exist
+        field_names = {f.get("name") for f in model.get("flds", [])}
         for field_name in _field_names():
             if field_name not in field_names:
                 mw.col.models.addField(model, mw.col.models.newField(field_name))
                 updated = True
 
-        if force_update:
-            if not model.get("tmpls"):
-                template = mw.col.models.newTemplate("Card 1")
-                model["tmpls"] = [template]
-            model["tmpls"][0]["qfmt"] = front_template
-            model["tmpls"][0]["afmt"] = back_template
+        # Ensure at least one template exists
+        if not model.get("tmpls"):
+            tmpl = mw.col.models.newTemplate("Card 1")
+            tmpl["qfmt"] = front_template
+            tmpl["afmt"] = back_template
+            model["tmpls"] = [tmpl]
             model["css"] = css
             updated = True
         else:
-            if not model.get("tmpls"):
-                template = mw.col.models.newTemplate("Card 1")
-                template["qfmt"] = front_template
-                template["afmt"] = back_template
-                model["tmpls"] = [template]
+            # Validate and auto-repair broken qfmt
+            tmpl0 = model["tmpls"][0] or {}
+            qfmt0 = tmpl0.get("qfmt", "")
+
+            broken_front = not front_has_field_replacement(qfmt0)
+
+            # Repair if:
+            # - user forced update OR
+            # - template is broken OR
+            # - afmt missing (rare, but fixable) OR
+            # - css missing/empty (optional, but nice to keep consistent)
+            needs_update = (
+                force_update
+                or broken_front
+                or not (tmpl0.get("afmt") or "").strip()
+            )
+
+            if needs_update:
+                model["tmpls"][0]["qfmt"] = front_template
+                model["tmpls"][0]["afmt"] = back_template
                 model["css"] = css
                 updated = True
+            else:
+                # If not forcing/repairing templates, still ensure CSS exists once
+                if not (model.get("css") or "").strip():
+                    model["css"] = css
+                    updated = True
 
     if updated:
         mw.col.models.save(model)
